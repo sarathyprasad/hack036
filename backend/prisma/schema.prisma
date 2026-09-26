@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id          String       @id @default(uuid())
+  email       String       @unique
+  name        String?
+  role        String       @default("TRADER")
+  instruments Instrument[]
+  inspections Inspection[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Instrument {
+  id           String       @id @default(uuid())
+  type         String
+  capacity     Float
+  serialNumber String       @unique
+  location     String
+  traderId     String
+  trader       User         @relation(fields: [traderId], references: [id])
+  inspections  Inspection[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Inspection {
+  id           String        @id @default(uuid())
+  lmoId        String
+  lmo          User          @relation(fields: [lmoId], references: [id])
+  instrumentId String
+  instrument   Instrument    @relation(fields: [instrumentId], references: [id])
+  mpeReading   Float
+  status       String
+  photoUrl     String?
+  geotag       String?
+  certificates Certificate[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Certificate {
+  id                String     @id @default(uuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id])
+  qrHash            String     @unique
+  issueDate         DateTime   @default(now())
+  expiryDate        DateTime
+  certificatePdfUrl String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+}
