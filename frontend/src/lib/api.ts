@@ -159,8 +159,34 @@ export type DashboardStats = {
   compliance_rate_percent: number;
 };
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && (!envUrl.includes("localhost") || (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")))) {
+    let clean = envUrl.trim().replace(/\/$/, "");
+    if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
+      clean = `https://${clean}`;
+    }
+    return clean;
+  }
+
+  // Automatic Render backend URL resolution from frontend hostname
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host.includes(".onrender.com")) {
+      if (host.includes("-frontend")) {
+        return `https://${host.replace("-frontend", "-backend")}`;
+      }
+      if (host.includes("frontend")) {
+        return `https://${host.replace("frontend", "backend")}`;
+      }
+    }
+  }
+
+  const fallback = envUrl ? envUrl.trim().replace(/\/$/, "") : "http://localhost:8000";
+  return fallback.startsWith("http") ? fallback : `https://${fallback}`;
+}
+
+export const API_URL = getApiBaseUrl();
 
 export function persistSession(token: string, user: User) {
   localStorage.setItem(TOKEN_COOKIE, token);
@@ -201,7 +227,8 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers,
   });

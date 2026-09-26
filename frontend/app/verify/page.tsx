@@ -252,7 +252,10 @@ export default function VerifyPage() {
                         <div className="text-slate-500 truncate max-w-[180px]">Hash: {result.qrHash}</div>
                       </div>
                       <div className="bg-white p-2 rounded-md border border-slate-200 shadow-sm">
-                        <QRCodeSVG value={`http://localhost:3000/verify?cert=${result.certificateId}`} size={64} />
+                        <QRCodeSVG
+                          value={typeof window !== "undefined" ? `${window.location.origin}/verify?cert=${encodeURIComponent(result.certificateId)}` : `https://legal-metrology-frontend.onrender.com/verify?cert=${encodeURIComponent(result.certificateId)}`}
+                          size={64}
+                        />
                       </div>
                     </div>
                   </div>
@@ -297,7 +300,10 @@ export default function VerifyPage() {
               </div>
             </div>
             <div className="text-right flex flex-col items-end justify-start">
-              <QRCodeSVG value={`http://localhost:3000/verify?cert=${result.certificateId}`} size={120} />
+              <QRCodeSVG
+                value={typeof window !== "undefined" ? `${window.location.origin}/verify?cert=${encodeURIComponent(result.certificateId)}` : `https://legal-metrology-frontend.onrender.com/verify?cert=${encodeURIComponent(result.certificateId)}`}
+                size={120}
+              />
               <div className="text-[10px] font-mono text-slate-500 mt-2">HMAC: {result.qrHash}</div>
             </div>
           </div>

@@ -1,13 +1,14 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 import os
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func
 
-from app.config import settings
+from app.config import BACKEND_DIR, settings
 from app.database import Base, engine, SessionLocal
 from app import models
 from app.models import (
@@ -220,13 +221,18 @@ def seed_initial_data(db):
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    if settings.database_url.startswith("sqlite"):
+    # Ensure database schema is created on startup (works with both SQLite and PostgreSQL)
+    try:
         Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        print(f"Database schema initialization warning: {exc}")
     
-    # Run seeder
+    # Run seeder if empty
     db = SessionLocal()
     try:
         seed_initial_data(db)
+    except Exception as exc:
+        print(f"Data seeder notice: {exc}")
     finally:
         db.close()
     yield
@@ -239,16 +245,39 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Flexible CORS setup compatible with Render preview and production domains
+cors_origins = settings.cors_origin_list
+has_wildcard = "*" in cors_origins or any(o == "*" for o in cors_origins)
 
-os.makedirs("storage/uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="storage/uploads"), name="uploads")
+if has_wildcard:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.onrender\.com)(:\d+)?$",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+upload_path = Path(settings.upload_dir)
+if not upload_path.is_absolute():
+    upload_path = BACKEND_DIR / upload_path
+upload_path.mkdir(parents=True, exist_ok=True)
+
+report_path = Path(settings.report_dir)
+if not report_path.is_absolute():
+    report_path = BACKEND_DIR / report_path
+report_path.mkdir(parents=True, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
 
 app.include_router(auth.router)
 app.include_router(users.router)

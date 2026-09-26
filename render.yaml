@@ -1,0 +1,65 @@
+services:
+  # -------------------------------------------------------------
+  # 1. Backend Web Service (FastAPI)
+  # -------------------------------------------------------------
+  - type: web
+    name: legal-metrology-backend
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: legal-metrology-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 120
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: UPLOAD_DIR
+        value: ./storage/uploads
+      - key: REPORT_DIR
+        value: ./storage/reports
+      - key: PYTHON_VERSION
+        value: 3.11.10
+
+  # -------------------------------------------------------------
+  # 2. Frontend Web Service (Next.js 15)
+  # -------------------------------------------------------------
+  - type: web
+    name: legal-metrology-frontend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: legal-metrology-backend
+          property: host
+
+databases:
+  # -------------------------------------------------------------
+  # 3. Managed PostgreSQL Database
+  # -------------------------------------------------------------
+  - name: legal-metrology-db
+    databaseName: legal_metrology
+    user: lm_user
+    plan: free
+    region: oregon
